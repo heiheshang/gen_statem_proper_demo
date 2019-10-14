@@ -158,7 +158,6 @@ next_state(S, _V, {call, ?TEST_MODULE, input, [_, Button]}) ->
       lock_state := PrevLockState
      } = S,
     IsCodeComplete = (length(Buttons) =:= length(?TEST_CODE)),
-
     NewButtons = case {IsCodeComplete, PrevLockState} of
                      {true, locked} ->
                          [Button];
@@ -167,8 +166,6 @@ next_state(S, _V, {call, ?TEST_MODULE, input, [_, Button]}) ->
                      _ ->
                          [Button | Buttons]
                  end,
-
-    NextS =
     case {lists:reverse(NewButtons), PrevLockState} of
         {?TEST_CODE, unlocked} ->
             S;
@@ -177,9 +174,7 @@ next_state(S, _V, {call, ?TEST_MODULE, input, [_, Button]}) ->
                lock_state => unlocked};
         _ ->
             S#{buttons => NewButtons}
-    end,
-    %%ct:log("next state: ~p~n", [{Button, S, NextS}]),
-    NextS;
+    end;
 next_state(S, _V, {call, ct, sleep, _}) ->
     #{lock_state := LockState} = S,
     case LockState of
@@ -194,7 +189,6 @@ precondition(_, _) ->
     true.
 
 postcondition(S, {call, ?TEST_MODULE, input, [_, Button]}, Result) ->
-    %%ct:log("postcondition: ~p~n", [{Button, S, Result}]),
     #{buttons := Buttons,
       lock_state := PrevLockState
      } = S,
