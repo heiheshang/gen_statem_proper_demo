@@ -26,10 +26,16 @@ start_link() ->
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
 init([]) ->
-    SupFlags = #{strategy => one_for_all,
-                 intensity => 0,
-                 period => 1},
-    ChildSpecs = [],
+    LockDefaultConfig = #{code          => [1,2,3,4],
+                          auto_lock_ms  => 5000,
+                          reset_code_ms => 30000},
+
+    SupFlags = #{strategy  => one_for_all,
+                 intensity => 3,
+                 period    => 5},
+    ChildSpecs = [#{id      => lock_server,
+                    start   => {lock, start_link, [lock, LockDefaultConfig]},
+                    restart => permanent}],
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
