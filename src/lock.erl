@@ -32,7 +32,7 @@ input(Button) ->
     input(?SERVER, Button).
 
 input(Name, Button) ->
-    gen_statem:call(Name, {input, Button}).
+    gen_statem:cast(Name, {input, Button}).
 
 %% Callbacks
 callback_mode() ->
@@ -49,7 +49,7 @@ init(#{code          := Code,
 
 locked(timeout, _, Data) ->
     {keep_state, Data#data{buttons=[]}};
-locked({call, From}, {input, Button}, Data) ->
+locked(cast, {input, Button}, Data) ->
     #data{buttons = Buttons,
           code = Code,
           auto_lock_ms  = AutoLockMS,
@@ -66,17 +66,14 @@ locked({call, From}, {input, Button}, Data) ->
     case lists:reverse(NewButtons) of
         Code ->
             {next_state, unlocked, NewData,
-             [{reply, From, {unlocked, Code}},
-              {state_timeout, AutoLockMS, locked}]};
-        WrongCode ->
-            {keep_state, NewData,
-             [{reply, From, {locked, WrongCode}}, ResetCodeMS]}
+             [{state_timeout, AutoLockMS, locked}]};
+        _ ->
+            {keep_state, NewData, ResetCodeMS}
     end;
 ?HANDLE_COMMON.
 
 unlocked(state_timeout, locked, Data) ->
     {next_state, locked, Data#data{buttons=[]}};
-unlocked({call, From}, {input, Button}, _Data) ->
-    {keep_state_and_data,
-     [{reply, From, {ignored, Button}}]};
+unlocked(cast, {input, _Button}, _Data) ->
+    keep_state_and_data;
 ?HANDLE_COMMON.

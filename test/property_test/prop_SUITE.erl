@@ -139,8 +139,8 @@ prop() ->
                begin
                    ?TEST_MODULE:start_link(?SERVER,
                                            #{code          => ?TEST_CODE,
-                                             auto_lock_ms  => 100,
-                                             reset_code_ms => 100}),
+                                             auto_lock_ms  => 30,
+                                             reset_code_ms => 30}),
                    {History, State, Result} = run_commands(?MODULE, Cmds),
                    ?TEST_MODULE:stop(?SERVER),
                    ?WHENFAIL(ct:log("History: ~w~nState: ~w\nResult: ~w~n",
@@ -188,19 +188,23 @@ next_state(S, _V, {call, ct, sleep, _}) ->
 precondition(_, _) ->
     true.
 
-postcondition(S, {call, ?TEST_MODULE, input, [_, Button]}, Result) ->
+postcondition(S, {call, ?TEST_MODULE, input, [_, Button]}, ok) ->
+    {CurrState, {data, _, ServerButtons, _, _, _}} = get_server_state(?SERVER),
+
     #{buttons := Buttons,
       lock_state := PrevLockState
      } = S,
-    case {PrevLockState, Result} of
-        {unlocked, {ignored, Button}} ->
-            lists:reverse(Buttons) =:= ?TEST_CODE;
-        {locked, {unlocked, ?TEST_CODE}} ->
-            lists:reverse([Button | Buttons]) =:= ?TEST_CODE;
-        {locked, {locked, [Button]}} ->
-           length(Buttons) =:= length(?TEST_CODE) orelse Buttons =:= [];
-        {locked, {locked, ServerButtons}} ->
-            lists:reverse([Button | Buttons]) =:= ServerButtons;
+
+    case {PrevLockState, CurrState} of
+        {unlocked, unlocked} ->
+            ServerButtons =:= Buttons
+                andalso lists:reverse(Buttons) =:= ?TEST_CODE;
+        {locked, unlocked} ->
+            lists:reverse(ServerButtons) =:= ?TEST_CODE
+                andalso lists:reverse([Button | Buttons]) =:= ?TEST_CODE;
+        {locked, locked} ->
+            hd(ServerButtons) =:= Button
+                andalso lists:reverse(ServerButtons) =/= ?TEST_CODE;
         _ ->
             false
     end;
@@ -211,5 +215,10 @@ command(_S) ->
     frequency([{2, {call, ?TEST_MODULE, input, [?SERVER, 1]}},
                {2, {call, ?TEST_MODULE, input, [?SERVER, 2]}},
                {2, {call, ?TEST_MODULE, input, [?SERVER, 3]}},
-               {1, {call, ct, sleep, [150]}}
+               {1, {call, ct, sleep, [50]}}
               ]).
+
+get_server_state(Srv) ->
+    State = sys:get_state(Srv),
+    ct:log("Server state: ~w~n", [State]),
+    State.
